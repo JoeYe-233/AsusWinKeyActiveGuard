@@ -2,7 +2,11 @@ name: Build and Attest MSVC
 
 on:
   release:
-    types: [published] # 发布 Release 时触发
+    types: [published]     # 1. 发布正式 Release 时触发
+  workflow_dispatch:         # 2. 支持在 GitHub 网页上手动点击运行（默认对 main 分支生效）
+  push:
+    branches:
+      - main               # 3. 严格限制：只有检入/推送到 main 分支时才触发编译
 
 jobs:
   build:
