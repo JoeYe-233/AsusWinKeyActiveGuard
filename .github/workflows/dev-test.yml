@@ -3,29 +3,42 @@ name: Dev Branch CI & Artifact Test
 on:
   push:
     branches:
-      - dev               # 仅在推送到 dev 分支时触发
-  workflow_dispatch:       # 支持手动点击触发
+      - dev               # 推送到 dev 时自动触发（走默认的 Release）
+  workflow_dispatch:
+    inputs:
+      build_config:
+        description: '选择编译配置 (仅影响本次手动运行)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
 
 jobs:
   build-and-test:
     runs-on: windows-latest
+    # 设置一个全局环境变量，巧妙处理 push 和手动触发的差异
+    env:
+      # 如果 inputs.build_config 存在（手动触发），就用它；否则（push 触发），默认用 Release
+      BUILD_CONFIG: ${{ inputs.build_config || 'Release' }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 1. 配置 MSBuild 环境
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    # 2. 编译解决方案（读取你本地配好的确定性参数）
-    - name: Build Solution (Debug or Release)
-      run: msbuild your-solution.sln /p:Configuration=Release /p:Platform=x64
+    - name: Build Solution
+      # 使用环境变量动态传入 Configuration
+      run: msbuild AsusWinKeyActiveGuard.sln /p:Configuration=${{ env.BUILD_CONFIG }} /p:Platform=x64
 
-    # 3. ✨ 核心步骤：将编译好的二进制文件上传为 Artifact
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: AsusWinKeyActiveGuard-Dev-EXE   # 下载时显示压缩包的名字
-        path: 'x64/Release/AsusWinKeyActiveGuard.exe' # 你生成的 exe 路径
-        retention-days: 7                     # 临时保存 7 天，超期自动删除，不占仓库空间
+        # 下载时的压缩包名字也会跟着变，比如：AsusWinKeyActiveGuard-Dev-Debug-EXE
+        name: AsusWinKeyActiveGuard-Dev-${{ env.BUILD_CONFIG }}-EXE
+        # 路径动态匹配 Debug 或 Release 文件夹
+        path: 'x64/${{ env.BUILD_CONFIG }}/AsusWinKeyActiveGuard.exe'
+        retention-days: 7
