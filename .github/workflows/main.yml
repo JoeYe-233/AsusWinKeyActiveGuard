@@ -1,0 +1,28 @@
+name: Build and Attest MSVC
+
+on:
+  release:
+    types: [published] # 发布 Release 时触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      id-token: write      # 必须：用于向 Sigstore 申请签名证书
+      contents: read       # 必须：读取源码
+      attestations: write  # 必须：写入凭证
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build Solution
+      run: msbuild AsusWinKeyActiveGuard.sln /p:Configuration=Release /p:Platform=x64
+
+    - name: Attest Build Provenance
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: 'x64/Release/AsusWinKeyActiveGuard.exe'
