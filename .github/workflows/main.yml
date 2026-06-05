@@ -1,32 +1,57 @@
-name: Build and Attest MSVC
+name: Auto Build and Release
 
 on:
-  release:
-    types: [published]     # 1. 发布正式 Release 时触发
-  workflow_dispatch:         # 2. 支持在 GitHub 网页上手动点击运行（默认对 main 分支生效）
   push:
     branches:
-      - main               # 3. 严格限制：只有检入/推送到 main 分支时才触发编译
+      - main               # 当推送到 main 时自动触发整个流程
+  workflow_dispatch:
+    inputs:
+      manual_version:
+        description: '手动指定版本号 (例如: v1.2.3)。留空则自动递增。'
+        required: false
+        type: string
 
 jobs:
-  build:
+  build-and-release:
     runs-on: windows-latest
     permissions:
-      id-token: write      # 必须：用于向 Sigstore 申请签名证书
-      contents: read       # 必须：读取源码
+      contents: write      # 必须：用于创建 Release 和 Tag
+      id-token: write      # 必须：用于生成凭证
       attestations: write  # 必须：写入凭证
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # 获取所有历史提交，以便正确计算版本号
 
+    # 1. 智能计算版本号
+    - name: Calculate Version
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        custom_tag: ${{ inputs.manual_version }} # 如果你手动输入了，就用你的；否则它会自动算
+        tag_prefix: v
+
+    # 2. 配置 MSBuild 环境
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
+    # 3. 编译解决方案 (你本地已配好确定性编译)
     - name: Build Solution
       run: msbuild AsusWinKeyActiveGuard.sln /p:Configuration=Release /p:Platform=x64
 
+    # 4. 生成防篡改溯源凭证
     - name: Attest Build Provenance
       uses: actions/attest-build-provenance@v2
       with:
         subject-path: 'x64/Release/AsusWinKeyActiveGuard.exe'
+
+    # 5. 自动创建 Release 并上传 EXE
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        files: 'x64/Release/AsusWinKeyActiveGuard.exe' # 自动把生成的 EXE 挂载到 Release 下
