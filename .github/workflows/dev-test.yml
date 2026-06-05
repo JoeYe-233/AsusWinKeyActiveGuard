@@ -1,0 +1,31 @@
+name: Dev Branch CI & Artifact Test
+
+on:
+  push:
+    branches:
+      - dev               # 仅在推送到 dev 分支时触发
+  workflow_dispatch:       # 支持手动点击触发
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 1. 配置 MSBuild 环境
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    # 2. 编译解决方案（读取你本地配好的确定性参数）
+    - name: Build Solution (Debug or Release)
+      run: msbuild your-solution.sln /p:Configuration=Release /p:Platform=x64
+
+    # 3. ✨ 核心步骤：将编译好的二进制文件上传为 Artifact
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AsusWinKeyActiveGuard-Dev-EXE   # 下载时显示压缩包的名字
+        path: 'x64/Release/AsusWinKeyActiveGuard.exe' # 你生成的 exe 路径
+        retention-days: 7                     # 临时保存 7 天，超期自动删除，不占仓库空间
