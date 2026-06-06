@@ -1639,12 +1639,12 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     // 测试美国英文 (en-US)
     // 注意：字符串必须是双 \0 结尾
-    // PCZZWSTR langUS = L"en-US\0";
-    // SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langUS, &numLanguages);
+    PCZZWSTR langUS = L"en-US\0";
+    SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langUS, &numLanguages);
 
-    // 测试繁体中文 (zh-TW)
-    PCZZWSTR langTW = L"zh-TW\0";
-    SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langTW, &numLanguages);
+    // // 测试繁体中文 (zh-TW)
+    // PCZZWSTR langTW = L"zh-TW\0";
+    // SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langTW, &numLanguages);
 
 #endif
 
