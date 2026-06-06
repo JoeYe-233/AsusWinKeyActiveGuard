@@ -232,6 +232,52 @@ std::wstring LoadDevicePathFromRegistry() {
 }
 
 // ==============================================================================
+// 增加：报警参数的持久化存取
+// ==============================================================================
+void SaveAlertConfigToRegistry() {
+    HKEY hKey;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+        DWORD timeMs = g_AlertTimeMs.load();
+        DWORD count = g_AlertCount.load();
+        RegSetValueExW(hKey, L"AlertTimeMs", 0, REG_DWORD, (const BYTE*)&timeMs, sizeof(DWORD));
+        RegSetValueExW(hKey, L"AlertCount", 0, REG_DWORD, (const BYTE*)&count, sizeof(DWORD));
+        RegCloseKey(hKey);
+    }
+}
+
+void LoadAlertConfigFromRegistry() {
+    HKEY hKey;
+    // 尝试读取注册表
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD timeMs = 1000, count = 5;
+        DWORD size = sizeof(DWORD);
+        
+        // 尝试读取时间，如果不存在则使用默认值 1000
+        if (RegQueryValueExW(hKey, L"AlertTimeMs", NULL, NULL, (LPBYTE)&timeMs, &size) == ERROR_SUCCESS) {
+            g_AlertTimeMs = timeMs;
+        } else {
+            g_AlertTimeMs = 1000;
+            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+        }
+
+        size = sizeof(DWORD);
+        // 尝试读取次数，如果不存在则使用默认值 5
+        if (RegQueryValueExW(hKey, L"AlertCount", NULL, NULL, (LPBYTE)&count, &size) == ERROR_SUCCESS) {
+            g_AlertCount = count;
+        } else {
+            g_AlertCount = 5;
+            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+        }
+        RegCloseKey(hKey);
+    } else {
+        // 最彻底的首次运行：连 Software\WinKeyDefender 这个主键都不存在
+        g_AlertTimeMs = 1000;
+        g_AlertCount = 5;
+        SaveAlertConfigToRegistry(); // 直接触发一次保存，完成注册表初始化
+    }
+}
+
+// ==============================================================================
 // 硬件及互动层
 // ==============================================================================
 bool HardwareTest(const std::wstring& path, bool lock) {
@@ -980,6 +1026,7 @@ void RearrangeControlsLayout(HWND hWnd, int dpi) {
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_CREATE: {
+        LoadAlertConfigFromRegistry();
         // 👇 新增：利用当前绝对有效的局部 hWnd，在创建的第一帧就注入深色标题栏
         BOOL darkVal = IsSystemDarkMode() ? TRUE : FALSE;
         DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkVal, sizeof(darkVal));
@@ -1082,7 +1129,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     }
                     curStr = L"";
                 }
-                hEditTime = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDIT, L"1000", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER, curX, curY, DPIScale(hWnd, 50), DPIScale(hWnd, 25), hWnd, (HMENU)ID_EDIT_TIME, hInst, NULL);
+                std::wstring strTime = std::to_wstring(g_AlertTimeMs.load());
+                hEditTime = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDIT, strTime.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER, curX, curY, DPIScale(hWnd, 50), DPIScale(hWnd, 25), hWnd, (HMENU)ID_EDIT_TIME, hInst, NULL);
                 curX += DPIScale(hWnd, 52);
                 i += 6;
             }
@@ -1101,7 +1149,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     }
                     curStr = L"";
                 }
-                hEditCount = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDIT, L"5", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER, curX, curY, DPIScale(hWnd, 30), DPIScale(hWnd, 25), hWnd, (HMENU)ID_EDIT_COUNT, hInst, NULL);
+                std::wstring strCount = std::to_wstring(g_AlertCount.load());
+                hEditCount = CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDIT, strCount.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER, curX, curY, DPIScale(hWnd, 30), DPIScale(hWnd, 25), hWnd, (HMENU)ID_EDIT_COUNT, hInst, NULL);
                 curX += DPIScale(hWnd, 32);
                 i += 7;
             }
@@ -1273,8 +1322,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     }
     case WM_COMMAND: {
         if (HIWORD(wParam) == EN_CHANGE) {
-            if (LOWORD(wParam) == ID_EDIT_TIME) g_AlertTimeMs = GetDlgItemInt(hWnd, ID_EDIT_TIME, NULL, FALSE);
-            if (LOWORD(wParam) == ID_EDIT_COUNT) g_AlertCount = GetDlgItemInt(hWnd, ID_EDIT_COUNT, NULL, FALSE);
+            if (LOWORD(wParam) == ID_EDIT_TIME) {
+                g_AlertTimeMs = GetDlgItemInt(hWnd, ID_EDIT_TIME, NULL, FALSE);
+                SaveAlertConfigToRegistry(); // 👇 新增：数值改变时立刻持久化
+            }
+            if (LOWORD(wParam) == ID_EDIT_COUNT) {
+                g_AlertCount = GetDlgItemInt(hWnd, ID_EDIT_COUNT, NULL, FALSE);
+                SaveAlertConfigToRegistry(); // 👇 新增：数值改变时立刻持久化
+            }
         }
         else if (LOWORD(wParam) == ID_BTN_ENUM) {
             EnableWindow(hBtnEnum, FALSE);
