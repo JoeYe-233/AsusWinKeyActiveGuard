@@ -92,7 +92,6 @@ HWND hChkStartup = NULL;
 
 HFONT g_hFontMain = NULL;
 HFONT g_hFontSettings = NULL;
-bool g_bIsInitializing = false; // 用于拦截 UI 创建时的幽灵 EN_CHANGE 消息
 
 // 记录窗口是否是第一次被显示，用于白嫖系统的原生 DWM 弹出动画
 bool g_bIsFirstShowMain = true;
@@ -247,25 +246,34 @@ void SaveAlertConfigToRegistry() {
 }
 
 void LoadAlertConfigFromRegistry() {
-    DWORD timeMs = 1000, count = 5;
-    DWORD size = sizeof(DWORD);
-    
-    // 1. 使用现代 API 原子化读取时间 (RRF_RT_REG_DWORD 强校验类型，绝不占用长期句柄)
-    LSTATUS status1 = RegGetValueW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", L"AlertTimeMs", RRF_RT_REG_DWORD, NULL, &timeMs, &size);
-    if (status1 == ERROR_SUCCESS) {
-        g_AlertTimeMs = timeMs;
-    }
+    HKEY hKey;
+    // 尝试读取注册表
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD timeMs = 1000, count = 5;
+        DWORD size = sizeof(DWORD);
+        
+        // 尝试读取时间，如果不存在则使用默认值 1000
+        if (RegQueryValueExW(hKey, L"AlertTimeMs", NULL, NULL, (LPBYTE)&timeMs, &size) == ERROR_SUCCESS) {
+            g_AlertTimeMs = timeMs;
+        } else {
+            g_AlertTimeMs = 1000;
+            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+        }
 
-    // 2. 复位 size，原子化读取次数
-    size = sizeof(DWORD); 
-    LSTATUS status2 = RegGetValueW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", L"AlertCount", RRF_RT_REG_DWORD, NULL, &count, &size);
-    if (status2 == ERROR_SUCCESS) {
-        g_AlertCount = count;
-    }
-
-    // 3. 完美兜底：只要有任何一个键缺失，或者这是在一台全新的电脑上首次运行，立刻将当前合法的默认值写回注册表补齐
-    if (status1 != ERROR_SUCCESS || status2 != ERROR_SUCCESS) {
-        SaveAlertConfigToRegistry();
+        size = sizeof(DWORD);
+        // 尝试读取次数，如果不存在则使用默认值 5
+        if (RegQueryValueExW(hKey, L"AlertCount", NULL, NULL, (LPBYTE)&count, &size) == ERROR_SUCCESS) {
+            g_AlertCount = count;
+        } else {
+            g_AlertCount = 5;
+            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+        }
+        RegCloseKey(hKey);
+    } else {
+        // 最彻底的首次运行：连 Software\WinKeyDefender 这个主键都不存在
+        g_AlertTimeMs = 1000;
+        g_AlertCount = 5;
+        SaveAlertConfigToRegistry(); // 直接触发一次保存，完成注册表初始化
     }
 }
 
@@ -1018,7 +1026,7 @@ void RearrangeControlsLayout(HWND hWnd, int dpi) {
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_CREATE: {
-        g_bIsInitializing = true;
+        LoadAlertConfigFromRegistry();
         // 👇 新增：利用当前绝对有效的局部 hWnd，在创建的第一帧就注入深色标题栏
         BOOL darkVal = IsSystemDarkMode() ? TRUE : FALSE;
         DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkVal, sizeof(darkVal));
@@ -1202,7 +1210,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         else {
             LogMessage(GetStringRes(IDS_LOG_INTFACE_ENUM_TIP).c_str());
         }
-        g_bIsInitializing = false;
         break;
     }
     case WM_SETTINGCHANGE: if (lParam && wcscmp((LPCWSTR)lParam, L"ImmersiveColorSet") == 0) ApplyTheme(); break;
@@ -1315,7 +1322,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     }
     case WM_COMMAND: {
         if (HIWORD(wParam) == EN_CHANGE) {
-            if (g_bIsInitializing) break;
             if (LOWORD(wParam) == ID_EDIT_TIME) {
                 g_AlertTimeMs = GetDlgItemInt(hWnd, ID_EDIT_TIME, NULL, FALSE);
                 SaveAlertConfigToRegistry(); // 👇 新增：数值改变时立刻持久化
