@@ -247,33 +247,46 @@ void SaveAlertConfigToRegistry() {
 
 void LoadAlertConfigFromRegistry() {
     HKEY hKey;
-    // 尝试读取注册表
+    bool needSave = false; // 标记是否需要触发缺省值写入
+
+    // 1. 尝试打开主键 (仅申请读取权限)
     if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\WinKeyDefender", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         DWORD timeMs = 1000, count = 5;
+        DWORD type = 0;
         DWORD size = sizeof(DWORD);
         
-        // 尝试读取时间，如果不存在则使用默认值 1000
-        if (RegQueryValueExW(hKey, L"AlertTimeMs", NULL, NULL, (LPBYTE)&timeMs, &size) == ERROR_SUCCESS) {
+        // 2. 严格读取 AlertTimeMs (强制要求必须是 REG_DWORD，拒绝 REG_SZ 等残留垃圾)
+        LSTATUS stTime = RegQueryValueExW(hKey, L"AlertTimeMs", NULL, &type, (LPBYTE)&timeMs, &size);
+        if (stTime == ERROR_SUCCESS && type == REG_DWORD) {
             g_AlertTimeMs = timeMs;
         } else {
             g_AlertTimeMs = 1000;
-            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+            needSave = true; // 发现类型不对或读取失败，做个记号
         }
 
-        size = sizeof(DWORD);
-        // 尝试读取次数，如果不存在则使用默认值 5
-        if (RegQueryValueExW(hKey, L"AlertCount", NULL, NULL, (LPBYTE)&count, &size) == ERROR_SUCCESS) {
+        // 3. 严格读取 AlertCount
+        type = 0;             // 必须重置 type
+        size = sizeof(DWORD); // 必须重置 size，非常关键！
+        LSTATUS stCount = RegQueryValueExW(hKey, L"AlertCount", NULL, &type, (LPBYTE)&count, &size);
+        if (stCount == ERROR_SUCCESS && type == REG_DWORD) {
             g_AlertCount = count;
         } else {
             g_AlertCount = 5;
-            SaveAlertConfigToRegistry(); // 键存在但值缺失，补写默认值
+            needSave = true; // 发现类型不对或读取失败，做个记号
         }
+        
+        // 4. 重点：先把读取句柄干净地关掉，释放系统的读锁
         RegCloseKey(hKey);
     } else {
-        // 最彻底的首次运行：连 Software\WinKeyDefender 这个主键都不存在
+        // 主键完全不存在
         g_AlertTimeMs = 1000;
         g_AlertCount = 5;
-        SaveAlertConfigToRegistry(); // 直接触发一次保存，完成注册表初始化
+        needSave = true;
+    }
+
+    // 5. 如果发现有任何缺损，在没有任何句柄占用的情况下，发起一次干净的写入覆盖
+    if (needSave) {
+        SaveAlertConfigToRegistry();
     }
 }
 
