@@ -19,10 +19,15 @@ A lightweight background guard for ASUS laptops/PCs that detects accidental `Fn 
 
 1. Download the latest release from the [Releases](https://github.com/JoeYe-233/AsusWinKeyActiveGuard/releases/latest) page.
 2. Run the executable. A shield icon will appear in your system tray, indicating that the guard is active. For the first launch, double-click the tray icon to bring up the control panel.
-3. In the control panel, click the **Enumerate** button to list all ASUS HID devices found on your system.
+3. In the control panel, click the **Enumerate Asus HID** button to list all ASUS HID devices found on your system.
 4. On the first column of the generated list, click the interactive `[Test]` button for each row to safely test whether that specific device endpoint can toggle your Windows key lock state.
 5. Once the correct device is identified, click `[Valid]` to save the configuration. The guard will automatically start monitoring the hardware state and will instantly unlock the Windows key whenever it detects an accidental `Fn + Win` press.
 6. Check the **Auto Start** option to have the guard launch automatically minimized on system startup.
+
+---
+### Screenshots
+![Main Interface](https://raw.githubusercontent.com/JoeYe-233/images/refs/heads/main/AsusWinKeyActiveGuard-enum.png)
+![Tray Menu](https://raw.githubusercontent.com/JoeYe-233/images/refs/heads/main/AsusWinKeyActiveGuard-tray.png)
 
 ---
 

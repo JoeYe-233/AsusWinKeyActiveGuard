@@ -785,7 +785,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
     case WM_COMMAND:
         if (LOWORD(wParam) == ID_LINK_GITHUB) {
-            ShellExecuteW(NULL, L"open", L"https://github.com/", NULL, NULL, SW_SHOWNORMAL);
+            ShellExecuteW(NULL, L"open", L"https://github.com/JoeYe-233/AsusWinKeyActiveGuard", NULL, NULL, SW_SHOWNORMAL);
         }
         break;
 
@@ -1344,7 +1344,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             if (!g_hSettingsWnd) {
                 WNDCLASSW wc = { 0 }; wc.lpfnWndProc = SettingsWndProc; wc.hInstance = hInst; wc.lpszClassName = L"SettingsWndClass"; RegisterClassW(&wc);
 
-                int setW = MulDiv(350, GetDpiForWindow(hWnd), 96);
+                int setW = MulDiv(450, GetDpiForWindow(hWnd), 96);
                 int setH = MulDiv(180, GetDpiForWindow(hWnd), 96);
 
                 // 让设置窗口在主窗口的中心 Spawn
@@ -1639,12 +1639,12 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     // 测试美国英文 (en-US)
     // 注意：字符串必须是双 \0 结尾
-    // PCZZWSTR langUS = L"en-US\0";
-    // SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langUS, &numLanguages);
+    PCZZWSTR langUS = L"en-US\0";
+    SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langUS, &numLanguages);
 
-    // 测试繁体中文 (zh-TW)
-    PCZZWSTR langTW = L"zh-TW\0";
-    SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langTW, &numLanguages);
+    // // 测试繁体中文 (zh-TW)
+    // PCZZWSTR langTW = L"zh-TW\0";
+    // SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, langTW, &numLanguages);
 
 #endif
 
