@@ -785,7 +785,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
     case WM_COMMAND:
         if (LOWORD(wParam) == ID_LINK_GITHUB) {
-            ShellExecuteW(NULL, L"open", L"https://github.com/", NULL, NULL, SW_SHOWNORMAL);
+            ShellExecuteW(NULL, L"open", L"https://github.com/JoeYe-233/AsusWinKeyActiveGuard", NULL, NULL, SW_SHOWNORMAL);
         }
         break;
 
@@ -1344,7 +1344,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             if (!g_hSettingsWnd) {
                 WNDCLASSW wc = { 0 }; wc.lpfnWndProc = SettingsWndProc; wc.hInstance = hInst; wc.lpszClassName = L"SettingsWndClass"; RegisterClassW(&wc);
 
-                int setW = MulDiv(350, GetDpiForWindow(hWnd), 96);
+                int setW = MulDiv(450, GetDpiForWindow(hWnd), 96);
                 int setH = MulDiv(180, GetDpiForWindow(hWnd), 96);
 
                 // 让设置窗口在主窗口的中心 Spawn

@@ -21,7 +21,7 @@ jobs:
     # 设置一个全局环境变量，巧妙处理 push 和手动触发的差异
     env:
       # 如果 inputs.build_config 存在（手动触发），就用它；否则（push 触发），默认用 Debug
-      BUILD_CONFIG: ${{ inputs.build_config || 'Debug' }}
+      BUILD_CONFIG: ${{ inputs.build_config || 'Release' }}
 
     steps:
     - name: Checkout code
