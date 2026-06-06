@@ -25,6 +25,11 @@ A lightweight background guard for ASUS laptops/PCs that detects accidental `Fn 
 6. Check the **Auto Start** option to have the guard launch automatically minimized on system startup.
 
 ---
+### Screenshots
+![Main Interface](https://raw.githubusercontent.com/JoeYe-233/images/refs/heads/main/AsusWinKeyActiveGuard-enum.png)
+![Tray Menu](https://raw.githubusercontent.com/JoeYe-233/images/refs/heads/main/AsusWinKeyActiveGuard-tray.png)
+
+---
 
 ### How it works
 
